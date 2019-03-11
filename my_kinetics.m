@@ -1,4 +1,4 @@
-function [NRVbac, NRV, pH, DGCatM, DGAnM, Df,spcM] = my_kinetics(R)
+function [NRVbac, NRV, dNRV, pH, DGCatM, DGAnM, Df,spcM] = my_kinetics(R)
 % computes oh so many things
 % NRVbac = rate of bacterial growth
 % NRVxybac = rate of bacterial growth in each grid cell
@@ -18,7 +18,7 @@ rMatrixFull = R.rm.rMatrixFull'; % full species, without the decay tho
 Vg = R.Sxy.Vg; % volume of one grid cell
 nT = R.Sxy.nT; % number of grid cells
 Sh_ini_all = 10.^(-R.Sxy.pH); % proton concentrations in comp. domain
-SLiqxy_all = R.Sxy.StVLiq; % concentrations of all solubles in all grids
+SLiqxy_all = R.Sxy.StVLiq; % NRVconcentrations of all solubles in all grids
 RthT = R.pOp.Rth*R.pOp.T; % the product of R and temperature - in kJ/mole
 VRgT = R.pOp.Vgas/(R.pOp.Rg*R.pOp.T); % basically pV = nuRT---nu = p* V/R*T
 KhV = R.pTh.Kh.KhV; % Henry's constants
@@ -37,12 +37,12 @@ numX = R.St.numX; % bacteria
 numStFull = R.St.numStFull; % all components
 Liq2Gas = R.St.Liq2Gas; % those from gas to liquid
 
-Glu_pos = strcmp(R.St.StNames(1:numStVLiq), 'Glu');
-AcH_pos = strcmp(R.St.StNames(1:numStVLiq), 'AcH');
-H2_pos = strcmp(R.St.StNames(1:numStVLiq), 'H2');
-% O2_pos = strcmp(R.St.StNames(1:numStVLiq), 'O2');
-% NH3_pos = strcmp(R.St.StNames(1:numStVLiq), 'NH3');
-% NO2_pos = strcmp(R.St.StNames(1:numStVLiq), 'NO2');
+% Glu_pos = strcmp(R.St.StNames(1:numStVLiq), 'Glu');
+% AcH_pos = strcmp(R.St.StNames(1:numStVLiq), 'AcH');
+% H2_pos = strcmp(R.St.StNames(1:numStVLiq), 'H2');
+O2_pos = strcmp(R.St.StNames(1:numStVLiq), 'O2');
+NH3_pos = strcmp(R.St.StNames(1:numStVLiq), 'NH3');
+NO2_pos = strcmp(R.St.StNames(1:numStVLiq), 'NO2');
 rv = R.pTh.react_v;
 
 bac_s = R.bac.bac_s;
@@ -53,7 +53,7 @@ bac_Ks = R.bac.bac_Ks;
 bac_maint = R.bac.bac_maint;
 CC = R.Sxy.c; % matrix that tells if bacteria i is in grid cell j
 % initialization
-NRVbac = zeros(R.bac.bac_n, 1); NRV = zeros(numStVLiq*nT,1); Ngas = NRV; X = zeros(nT,1); pH = X;
+NRVbac = zeros(R.bac.bac_n, 1); NRV = zeros(numStVLiq*nT,1); dNRV = zeros(numStVLiq*nT,1); Ngas = NRV; X = zeros(nT,1); pH = X;
 DGCatM = zeros(nT*numX,1); DGAnM = DGCatM; DG_mat = ones(numStFull,1);
 
 for i=1:nT
@@ -114,46 +114,63 @@ for i=1:nT
                     MatrixMet = MatrixCat(:,k).*InvYield + MatrixAn(:,k); % assemble the metabolic matrix
                     
                     M = 1;
-%                     % compute the rates for each bacteria now
-%                     if ne(bac_Ks(ex(e),1),0)
-%                         M = M*spcM(NH3_pos,rv(NH3_pos))/(spcM(NH3_pos,rv(NH3_pos)) + bac_Ks(ex(e),1));
-% %                         use the proper concentration, corresponding to the proper state
-%                     end
-%                     if ne(bac_Ks(ex(e),2),0)
-%                         M = M*(spcM(NO2_pos,rv(NO2_pos))/(spcM(NO2_pos,rv(NO2_pos)) + bac_Ks(ex(e),2)));
-%                     end
-%                     if ne(bac_Ks(ex(e),3),0)
-%                         M = M*(spcM(O2_pos,rv(O2_pos))/(spcM(O2_pos,rv(O2_pos)) + bac_Ks(ex(e),3)));
-%                     end
-%                     
-%                     M = M*spcM(Glu_pos,rv(Glu_pos))/(spcM(Glu_pos,rv(Glu_pos)) + bac_Ks(ex(e),1));
-
+                    % compute the rates for each bacteria now
                     if ne(bac_Ks(ex(e),1),0)
-                        M = M*spcM(Glu_pos,rv(Glu_pos))/(spcM(Glu_pos,rv(Glu_pos)) + bac_Ks(ex(e),1));
-%                         use the proper concentration, corresponding to the proper state
+                        M = M*spcM(NH3_pos,rv(NH3_pos))/(spcM(NH3_pos,rv(NH3_pos)) + bac_Ks(ex(e),1));
+                    % use the proper concentration, corresponding to the proper state
                     end
                     if ne(bac_Ks(ex(e),2),0)
-                        M = M*(spcM(H2_pos,rv(H2_pos))/(spcM(H2_pos,rv(H2_pos)) + bac_Ks(ex(e),2)));
+                        M = M*(spcM(NO2_pos,rv(NO2_pos))/(spcM(NO2_pos,rv(NO2_pos)) + bac_Ks(ex(e),2)));
                     end
                     if ne(bac_Ks(ex(e),3),0)
-                        M = M*(spcM(AcH_pos,rv(AcH_pos))/(spcM(AcH_pos,rv(AcH_pos)) + bac_Ks(ex(e),3)));
+                        M = M*(spcM(O2_pos,rv(O2_pos))/(spcM(O2_pos,rv(O2_pos)) + bac_Ks(ex(e),3)));
                     end
+
+%                     M = M*spcM(Glu_pos,rv(Glu_pos))/(spcM(Glu_pos,rv(Glu_pos)) + bac_Ks(ex(e),1));
+
+%                     if ne(bac_Ks(ex(e),1),0)
+%                         M = M*spcM(Glu_pos,rv(Glu_pos))/(spcM(Glu_pos,rv(Glu_pos)) + bac_Ks(ex(e),1));
+%                     % use the proper concentration, corresponding to the proper state
+%                     end
+%                     if ne(bac_Ks(ex(e),2),0)
+%                         M = M*(spcM(H2_pos,rv(H2_pos))/(spcM(H2_pos,rv(H2_pos)) + bac_Ks(ex(e),2)));
+%                     end
+%                     if ne(bac_Ks(ex(e),3),0)
+%                         M = M*(spcM(AcH_pos,rv(AcH_pos))/(spcM(AcH_pos,rv(AcH_pos)) + bac_Ks(ex(e),3)));
+%                     end
+
+                    dM = 1;
+                    % compute the rates for each bacteria now
+                    if ne(bac_Ks(ex(e),1),0)
+                        dM = dM*bac_Ks(ex(e),1)/(spcM(NH3_pos,rv(NH3_pos)) + bac_Ks(ex(e),1))^2;
+                    % use the proper concentration, corresponding to the proper state
+                    end
+                    if ne(bac_Ks(ex(e),2),0)
+                        dM = dM*bac_Ks(ex(e),2)/(spcM(NO2_pos,rv(NO2_pos)) + bac_Ks(ex(e),2))^2;
+                    end
+                    if ne(bac_Ks(ex(e),3),0)
+                        dM = dM*spcM(O2_pos,rv(O2_pos))/(spcM(O2_pos,rv(O2_pos)) + bac_Ks(ex(e),3));
+                    end
+
                     mu = bac_mu_max(ex(e))*M - bac_maint(ex(e));
+                    dmu = bac_mu_max(ex(e))*dM;
                     
                     if mu > 0  % the cell grows
                         rg = mu*(bac_m(ex(e)));
                         NRVxy = MatrixMet*rg; % rates of all soluble species
-                        
+                        dNRVxy = MatrixMet*dmu*(bac_m(ex(e)))/Vg;
                         %                     elseif mu = 0
                         %                         rg = 0;
                         %                         NRVxy = MatrixCat(:,k)*bac_mu_max(ex(e))*bac_m(ex(e));
                     else
                         rg = mu*(bac_m(ex(e))); % the cell shrinks
                         NRVxy = MatrixDecay(:,k)*(-rg); % rates of all soluble species
+                        dNRVxy = MatrixDecay(:,k)*(-dmu*(bac_m(ex(e))))/Vg;
                     end
                     NRVbac(ex(e)) = rg; % rates for bacteria
                     NRVxy(1:numStVLiq2) = NRVxy(1:numStVLiq2)/Vg; % rates for liquid components - divided by volume - concentrations
-                    NRV(indLiq) = NRV(indLiq)+NRVxy; % all rates in all grid cells
+                    NRV(indLiq) = NRV(indLiq)+ NRVxy; % all rates in all grid cells
+                    dNRV(indLiq) = dNRV(indLiq)+ dNRVxy;
 
                 end
             end
